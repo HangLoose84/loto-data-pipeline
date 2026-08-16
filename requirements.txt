@@ -1,0 +1,15 @@
+# Nucleo de datos y analisis
+pandas>=2.2
+numpy>=1.26,<2.0
+scipy>=1.14
+scikit-learn>=1.5
+
+# Interfaz grafica y orquestacion
+streamlit>=1.40
+
+# Scraping
+selenium>=4.29
+beautifulsoup4>=4.13
+webdriver-manager>=4.0
+flask>=3.1
+openpyxl>=3.1

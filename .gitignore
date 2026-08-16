@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Variables de entorno y secretos
+.env
+.env.*
+.streamlit/secrets.toml
+
+# Salida temporal del scraper: se regenera con `streamlit run app.py`.
+# El dataset maestro (data/loto_historico.csv) SI se versiona.
+resultados.xlsx
+resultados_*.csv
+*.xlsx
+!data/*.xlsx
+
+# Artefactos de modelos y cache
+*.joblib
+*.pkl
+optuna_*.db
+.cache/
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
