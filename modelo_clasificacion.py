@@ -117,8 +117,17 @@ def evaluar(nombre, aciertos):
     err = sigma / np.sqrt(len(a))
     z = (a.mean() - mu) / err
     p = stats.norm.sf(abs(z)) * 2
+
+    if p >= 0.05:
+        veredicto = "indistinguible del azar"
+    elif z > 0:
+        veredicto = "SUPERA al azar (p<0.05)"
+    else:
+        # Ocurre por casualidad: con varias comparaciones, un p<0.05 aislado
+        # es esperable y no indica que la estrategia sea peor sistematicamente.
+        veredicto = "por DEBAJO del azar (p<0.05)"
     print(f"  {nombre:<28} {a.mean():.4f}   z = {z:+5.2f}   p = {p:.3f}"
-          f"   {'SUPERA AL AZAR' if p < 0.05 and z > 0 else 'indistinguible del azar'}")
+          f"   {veredicto}")
     return a.mean(), z, p
 
 

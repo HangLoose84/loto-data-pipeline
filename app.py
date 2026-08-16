@@ -140,7 +140,7 @@ with tab_datos:
             "Límite de páginas (0 = sin límite)", min_value=0, value=0, step=1,
             help="Útil para una prueba rápida sin recorrer todo el histórico.")
     lanzar = col_btn.button("🔄 Actualizar base de datos", type="primary",
-                            use_container_width=True)
+                            width='stretch')
 
     if lanzar:
         registro = st.empty()
@@ -193,7 +193,7 @@ with tab_datos:
 
     if maestro is not None:
         with st.expander("Ver últimos sorteos del maestro"):
-            st.dataframe(maestro.head(15), use_container_width=True,
+            st.dataframe(maestro.head(15), width='stretch',
                          hide_index=True)
 
 
@@ -233,7 +233,7 @@ with tab_gen:
         st.markdown("#### Combinaciones recomendadas")
         apuestas = r["apuestas"]
         st.dataframe(
-            apuestas, use_container_width=True, hide_index=True,
+            apuestas, width='stretch', hide_index=True,
             column_config={
                 **{f"N{i}": st.column_config.NumberColumn(f"N{i}", width="small")
                    for i in range(1, 7)},
@@ -247,7 +247,7 @@ with tab_gen:
             file_name="apuestas_loto.csv", mime="text/csv")
 
         with st.expander("Embudo de descarte — cuánto elimina cada regla"):
-            st.dataframe(r["reglas"], use_container_width=True, hide_index=True)
+            st.dataframe(r["reglas"], width='stretch', hide_index=True)
             st.caption("Los porcentajes son exactos: el espacio se enumera "
                        "completo, no se estima por muestreo.")
 

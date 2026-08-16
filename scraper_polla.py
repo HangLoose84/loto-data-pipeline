@@ -76,20 +76,41 @@ def _crear_driver(headless=True):
                             options=opciones)
 
 
-def iter_resultados(url=URL, headless=True, max_paginas=None, pausa=2.0,
-                    espera=15):
+def _filas_de(driver):
+    """Registros validos de la tabla actualmente cargada."""
+    from bs4 import BeautifulSoup
+
+    tabla = BeautifulSoup(driver.page_source, "html.parser").find(
+        "table", class_="table-results")
+    if not tabla:
+        return []
+    filas = []
+    for tr in tabla.find_all("tr"):
+        celdas = [c.get_text(strip=True) for c in tr.find_all(["td", "th"])]
+        fila = parsear_fila(celdas)
+        if fila:
+            filas.append(fila)
+    return filas
+
+
+def iter_resultados(url=URL, headless=True, max_paginas=None, pausa=0.4,
+                    espera=15, reintentos=3, on_warn=None):
     """Recorre las paginas de resultados y va emitiendo un dict por sorteo.
 
-    Deduplica sobre la marcha: si el clic en "Siguiente pagina" no alcanza a
-    cargar, la version anterior volvia a leer la misma tabla y duplicaba cada
-    fila (por eso el .xlsx original traia cada sorteo dos veces).
+    El avance de pagina se confirma esperando a que la tabla cambie de
+    contenido, no con una pausa fija. Una pausa fija demasiado corta hacia
+    releer la misma tabla; detectar eso y cortar el recorrido truncaba la
+    descarga en silencio, dejando huecos en el historico.
+
+    Solo se termina cuando "Siguiente pagina" queda inactiva, desaparece, o
+    la tabla no cambia tras varios reintentos (y en ese caso se avisa).
     """
-    from bs4 import BeautifulSoup
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
-    from selenium.common.exceptions import NoSuchElementException
+    from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
+    avisar = on_warn or (lambda m: None)
     driver = _crear_driver(headless)
     vistos = set()
     try:
@@ -100,33 +121,46 @@ def iter_resultados(url=URL, headless=True, max_paginas=None, pausa=2.0,
         pagina = 0
         while max_paginas is None or pagina < max_paginas:
             pagina += 1
-            tabla = BeautifulSoup(driver.page_source, "html.parser").find(
-                "table", class_="table-results")
-            if not tabla:
+            filas = _filas_de(driver)
+            if not filas:
+                avisar(f"Pagina {pagina} sin filas validas; se corta aqui.")
                 break
 
-            nuevos = 0
-            for tr in tabla.find_all("tr"):
-                celdas = [c.get_text(strip=True)
-                          for c in tr.find_all(["td", "th"])]
-                fila = parsear_fila(celdas)
-                if fila and fila["Sorteo"] not in vistos:
+            for fila in filas:
+                if fila["Sorteo"] not in vistos:
                     vistos.add(fila["Sorteo"])
-                    nuevos += 1
                     yield fila
 
-            if nuevos == 0 and pagina > 1:
-                break                    # la pagina no avanzo: cortar
-
+            marca = filas[0]["Sorteo"]
             try:
                 boton = driver.find_element(By.LINK_TEXT, "Siguiente página")
                 if "inactive" in (boton.find_element(By.XPATH, "..")
                                   .get_attribute("class") or ""):
-                    break
-                boton.click()
-                time.sleep(pausa)
+                    break                        # fin real del historico
             except NoSuchElementException:
                 break
+
+            # Confirmar que la tabla efectivamente cambio antes de re-leerla.
+            for intento in range(1, reintentos + 1):
+                try:
+                    driver.find_element(By.LINK_TEXT, "Siguiente página").click()
+                except NoSuchElementException:
+                    break
+                try:
+                    WebDriverWait(driver, espera).until(
+                        lambda d: (_filas_de(d) or [{"Sorteo": marca}])[0]["Sorteo"] != marca)
+                    break
+                except TimeoutException:
+                    if intento == reintentos:
+                        avisar(
+                            f"La pagina {pagina + 1} no cargo tras {reintentos} "
+                            f"intentos; la descarga queda incompleta en el "
+                            f"sorteo {marca}.")
+                    time.sleep(pausa * intento)
+            else:
+                break
+            if pausa:
+                time.sleep(pausa)
     finally:
         driver.quit()
 

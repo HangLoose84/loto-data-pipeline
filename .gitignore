@@ -41,3 +41,6 @@ desktop.ini
 # Logs
 *.log
 logs/
+
+# Configuracion local de Claude Code
+.claude/

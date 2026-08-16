@@ -127,6 +127,18 @@ def validar(df, log=print):
     return df
 
 
+def detectar_huecos(df):
+    """Tramos de sorteos ausentes en la secuencia. [(desde, hasta), ...]
+
+    Los sorteos son correlativos, asi que cualquier salto significa una
+    descarga incompleta. Sin este chequeo un scrape truncado pasa
+    inadvertido: el archivo se ve sano y simplemente le faltan sorteos.
+    """
+    s = df["sorteo"].astype(int).sort_values().to_numpy()
+    return [(int(a) + 1, int(b) - 1)
+            for a, b in zip(s, s[1:]) if b - a > 1]
+
+
 def update_database(ruta_scrape=None, log=print):
     """Integra un scrape al maestro y completa las fechas.
 
@@ -150,6 +162,7 @@ def update_database(ruta_scrape=None, log=print):
     salida.to_csv(MAESTRO, index=False, date_format="%Y-%m-%d %H:%M")
 
     origen = salida["fecha_origen"].value_counts().to_dict()
+    huecos = detectar_huecos(salida)
     stats = {
         "total_sorteos": len(salida),
         "sorteos_nuevos": len(salida) - previos,
@@ -159,12 +172,20 @@ def update_database(ruta_scrape=None, log=print):
         "fecha_max": salida["fecha"].max(),
         "fechas_registradas": int(origen.get("registrada", 0)),
         "fechas_reconstruidas": int(origen.get("reconstruida", 0)),
+        "huecos": huecos,
+        "sorteos_faltantes": sum(b - a + 1 for a, b in huecos),
         "ruta": str(MAESTRO),
     }
     log(f"Total: {stats['total_sorteos']} sorteos "
         f"({stats['sorteo_min']} a {stats['sorteo_max']}) | "
         f"registradas: {stats['fechas_registradas']} | "
         f"reconstruidas: {stats['fechas_reconstruidas']}")
+    if huecos:
+        tramos = ", ".join(f"{a}-{b}" if b > a else str(a) for a, b in huecos[:5])
+        log(f"AVISO: faltan {stats['sorteos_faltantes']} sorteos en "
+            f"{len(huecos)} tramo(s): {tramos}"
+            + (" ..." if len(huecos) > 5 else "")
+            + ". La descarga quedo incompleta; vuelve a ejecutarla.")
     return salida, stats
 
 
