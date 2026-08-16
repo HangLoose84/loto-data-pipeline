@@ -35,7 +35,7 @@ Backtest con split temporal estricto, verificación
 programática contra *data leakage* y métricas
 calibradas.
 
-**Resultado:** ROC AUC = 0.4926, y un log loss
+**Resultado:** ROC AUC = 0.5067, y un log loss
 *peor* que predecir la constante 6/41.
 
 `modelo_clasificacion.py`
@@ -51,7 +51,7 @@ El pozo se reparte entre los ganadores. Jugar
 combinaciones impopulares no cambia la chance de
 ganar, pero sí cuánto se cobra si se gana.
 
-**Resultado:** 388.084 combinaciones admisibles
+**Resultado:** 388.056 combinaciones admisibles
 de 4.496.388, por enumeración exhaustiva.
 
 `generador_apuestas.py`
@@ -84,7 +84,7 @@ de 4.496.388, por enumeración exhaustiva.
 flowchart LR
     W["polla.cl"] -->|"Selenium + BS4"| S["scraper_polla.py<br/>run_scraper"]
     S -->|"resultados.xlsx"| C["consolidar_datos.py<br/>update_database"]
-    C -->|"validación + fechas"| D[("data/loto_historico.csv<br/>1442 sorteos")]
+    C -->|"validación + fechas"| D[("data/loto_historico.csv<br/>1662 sorteos")]
     D --> M["modelo_clasificacion.py<br/>backtest temporal"]
     D --> G["generador_apuestas.py<br/>generate_bets"]
     M -.->|"no hay señal explotable"| G
@@ -109,7 +109,7 @@ GUI con su traza real, en vez de perderse en el código de salida de un `os.syst
 | `consolidar_datos.py` | Validación, merge incremental y fechas | `update_database()` |
 | `modelo_clasificacion.py` | Backtest temporal y prueba de ausencia de señal | `main()` |
 | `generador_apuestas.py` | Optimización combinatoria | `generate_bets(columnas=6)` |
-| `data/loto_historico.csv` | Fuente única de verdad · 1442 sorteos (3803–5244) | — |
+| `data/loto_historico.csv` | Fuente única de verdad · 1662 sorteos (3803–5464) | — |
 
 ---
 
@@ -154,7 +154,7 @@ El dataset maestro se consolidó a partir de tres fuentes solapadas. La fusión 
 
 ### Reconstrucción de fechas ausentes
 
-186 sorteos llegaron sin fecha. El sorteo se realiza **martes, jueves y domingo**, y sobre los
+186 sorteos historicos llegaron sin fecha. El sorteo se realiza **martes, jueves y domingo**, y sobre los
 1256 registros con fecha la correspondencia `sorteo N ↔ N-ésimo día de sorteo` resultó ser una
 **biyección exacta**: los 1256 días del rango están todos ocupados, sin huecos ni duplicados,
 sin una sola excepción en 8 años. Los 6 sorteos que parecían anómalos son los especiales de
@@ -169,7 +169,7 @@ misma confianza:
 
 | `fecha_origen` | Sorteos | Confianza |
 |---|---|---|
-| `registrada` | 1256 | Fecha original de la fuente |
+| `registrada` | 1476 | Fecha original de la fuente |
 | `reconstruida` | 186 | Derivada del calendario |
 
 De las reconstruidas, 30 están confirmadas por el ancla externa. Las otras 156 (año 2016)
@@ -223,23 +223,30 @@ una fuga temporal.
 
 | Estrategia | Aciertos /6 | z | p | Veredicto |
 |---|---:|---:|---:|---|
-| Modelo (HistGradientBoosting) | 0.8300 | −1.19 | 0.235 | Indistinguible del azar |
-| Azar puro | 0.9125 | +0.85 | 0.395 | — |
-| Los más frecuentes ("calientes") | 0.8450 | −0.82 | 0.414 | Indistinguible del azar |
-| Los más atrasados ("fríos") | 0.8975 | +0.48 | 0.631 | Indistinguible del azar |
+| Modelo (HistGradientBoosting) | 0.9050 | +0.67 | 0.506 | Indistinguible del azar |
+| Azar puro | 0.7925 | −2.11 | 0.035 | Ver nota |
+| Los más frecuentes ("calientes") | 0.8900 | +0.30 | 0.768 | Indistinguible del azar |
+| Los más atrasados ("fríos") | 0.8650 | −0.32 | 0.747 | Indistinguible del azar |
 | **Esperanza teórica del azar** | **0.8780** | | | |
+
+> **Nota sobre el azar puro (p = 0.035).** El baseline aleatorio quedó significativamente
+> *por debajo* de su propia esperanza. No es un hallazgo: con cuatro comparaciones, un
+> p < 0.05 aislado es esperable por puro muestreo, y una tirada aleatoria no puede ser
+> "peor que el azar" de forma sistemática. Es un recordatorio de por qué un p-valor suelto
+> sobre una sola métrica es evidencia débil — y de por qué la conclusión de este proyecto
+> se apoya en la calibración, no en la tabla de aciertos.
 
 Lo más concluyente no es esa tabla, sino la **calibración de las probabilidades**:
 
 | Métrica | Valor | Lectura |
 |---|---|---|
-| ROC AUC | **0.4926** | Sin información (0.5 = moneda al aire) |
-| Log loss del modelo | **0.4166** | — |
+| ROC AUC | **0.5067** | Sin información (0.5 = moneda al aire) |
+| Log loss del modelo | **0.4164** | — |
 | Log loss de la constante 6/41 | **0.4163** | El modelo es medible y literalmente **peor que no modelar** |
-| Rango de `P(k)` | 0.1135 – 0.2400 | Se dispersan alrededor del 0.1463 teórico: **ruido puro** |
+| Rango de `P(k)` | 0.0590 – 0.2530 | Se dispersan alrededor del 0.1463 teórico: **ruido puro** |
 
 Esa dispersión es exactamente el aspecto que tiene un modelo sobreajustando a un proceso
-aleatorio. Un chi-cuadrado sobre los 1442 sorteos da **p = 0.92**: los 41 números son
+aleatorio. Un chi-cuadrado sobre los 1662 sorteos da **p = 0.72**: los 41 números son
 estadísticamente indistinguibles de uniformes. El sorteo es limpio, y el modelo lo confirma
 desde el lado predictivo.
 
@@ -268,7 +275,7 @@ se optimiza contra el comportamiento de los otros apostadores, no contra el sort
 ### Enumeración exhaustiva, no muestreo
 
 El espacio **C(41,6) = 4.496.388** se recorre completo, así que los porcentajes de descarte
-son **exactos**. Con la cartilla por defecto sobreviven **388.084 combinaciones (8.63%)**.
+son **exactos**. Con la cartilla por defecto sobreviven **388.056 combinaciones (8.63%)**.
 La selección final es un **muestreo uniforme** sobre ese conjunto: privilegiar algo dentro del
 filtro sería reintroducir la superstición por la puerta de atrás.
 
@@ -278,10 +285,10 @@ Las reglas visuales dependen de la grilla del cartón físico, configurable desd
 
 | Columnas | Grilla | Admisibles | % del total |
 |---:|---|---:|---:|
-| 5 | 9 × 5 | 379.322 | 8.44% |
-| **6** (defecto) | **7 × 6** | **388.084** | **8.63%** |
-| 7 | 6 × 7 | 383.388 | 8.53% |
-| 10 | 5 × 10 | 356.648 | 7.93% |
+| 5 | 9 × 5 | 379.296 | 8.44% |
+| **6** (defecto) | **7 × 6** | **388.056** | **8.63%** |
+| 7 | 6 × 7 | 383.361 | 8.53% |
+| 10 | 5 × 10 | 356.621 | 7.93% |
 
 ---
 
